@@ -42,7 +42,7 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
  * }
  */
 template<class OutputIterator>
-std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b, size_t max_run, blosum score, std::function<float(float)> weight) {
+std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b, size_t max_run, std::function<float(position, position)> score, std::function<float(float)> weight) {
 	using namespace std;
 	vector<vector<entry>> f{a.size(), vector<entry>{b.size(), entry()}};
 
@@ -53,7 +53,7 @@ std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b
 			// shortest to longest run.
 			float run_value = 0;
 			for(size_t n = 0 ; n <= max_run && n <= i && n <= j ; n++) {
-				run_value += score[a[i - n]][b[j - n]];
+				run_value += score(a[i - n], b[j - n]);
 				entry e{i, j, n};
 				e.value = e.run_value = weight(run_value);
 				if(n < i && n < j)

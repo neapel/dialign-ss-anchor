@@ -72,7 +72,9 @@ int main(int argc, char **argv) {
 	// compute alignment
 	vector<entry> output;
 	auto matrix = align(back_inserter(output), input1, input2,
-		max_length, score, [](float x){return x;});
+		max_length,
+		[&score](position a, position b){ return score[a][b]; },
+		[](float x){return x;});
 	for(auto e : output)
 		*output_file << e.start_i() << ' ' << e.start_j() << ' ' << e.length()
 		        << ' ' << e.run_value << '\n';
