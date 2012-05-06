@@ -80,9 +80,9 @@ sequence read_vformat(std::istream &input) {
 		ss >> index >> res >> struc;
 		vector<float> data;
 		while(ss) {
-			float value;
+			float value = -1;
 			ss >> value;
-			data.push_back(value);
+			if(ss) data.push_back(value);
 		}
 		seq.push_back(position(res, data));
 	}

@@ -10,13 +10,42 @@
 template<typename T, typename T1>
 void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &runs) {
 	using namespace std;
+	const float colors[][3] = {
+		{196/255.0, 117/255.0, 126/255.0},
+		{235/255.0, 177/255.0, 61/255.0},
+		{157/255.0, 184/255.0, 210/255.0}
+	};
+	const float line_c[] = {110/255.0, 158/255.0, 110/255.0};
+	const float mark_c[] = {238/255.0, 214/255.0, 128/255.0, 0.5};
 
 	// a/i rows=x. b/j columns=y.
-	const double cell = 10;
-	auto surf = cairo_pdf_surface_create(filename.c_str(), (a.size() + 3) * cell, (b.size() + 3) * cell);
+	const double cell = 10, hcell = cell/2;
+	const size_t aux_count = a[0].aux.size();
+	const float aux_margin = aux_count * hcell;
+	auto surf = cairo_pdf_surface_create(filename.c_str(), (a.size() + 3) * cell + aux_margin, (b.size() + 3) * cell + aux_margin);
 	auto ctx = cairo_create(surf);
 	cairo_set_line_width(ctx, cell/20);
 	cairo_translate(ctx, 2 * cell, 2 * cell);
+	cairo_translate(ctx, aux_margin, aux_margin);
+
+	// aux info
+	cairo_save(ctx);
+
+	for(size_t k = 0 ; k < aux_count ; k++) {
+		const float kr = colors[k][0], kg = colors[k][1], kb = colors[k][2];
+		const float off = -2 * cell - k * hcell;
+		for(size_t i = 0 ; i < a.size() ; i++) {
+			cairo_rectangle(ctx, i * cell, off, cell, hcell);
+			cairo_set_source_rgba(ctx, kr, kg, kb, a[i].aux[k]);
+			cairo_fill(ctx);
+		}
+		for(size_t j = 0 ; j < b.size() ; j++) {
+			cairo_rectangle(ctx, off, j * cell, hcell, cell);
+			cairo_set_source_rgba(ctx, kr, kg, kb, b[j].aux[k]);
+			cairo_fill(ctx);
+		}
+	}
+	cairo_restore(ctx);
 
 	// sequences
 	cairo_save(ctx);
@@ -85,7 +114,7 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 
 	// runs
 	cairo_save(ctx);
-	cairo_set_source_rgba(ctx, 0, 0.75, 1, 0.5);
+	cairo_set_source_rgba(ctx, mark_c[0], mark_c[1], mark_c[2], mark_c[3]);
 	cairo_set_line_width(ctx, cell);
 	cairo_set_line_cap(ctx, CAIRO_LINE_CAP_ROUND);
 	for(auto e : runs) {
@@ -107,7 +136,7 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 		cairo_translate(ctx, e.i * cell, e.j * cell);
 		cairo_move_to(ctx, 0.75 * cell, 0.75 * cell);
 		cairo_line_to(ctx, -(e.n - 0.25) * cell, -(e.n - 0.25) * cell);
-		cairo_set_source_rgba(ctx, 1, 0, 0, 1.0/(e.n + 1));
+		cairo_set_source_rgba(ctx, line_c[0], line_c[1], line_c[2], 1.0/(e.n + 1));
 		cairo_stroke(ctx);
 		cairo_restore(ctx);
 	}
