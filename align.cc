@@ -1,23 +1,17 @@
-#include <string>
-
-// debug output
-std::string debug_name;
-
 #include "formats.hh"
 #include "align.hh"
 #include <boost/program_options.hpp>
+#include <string>
 #include <fstream>
 #include <ostream>
 using namespace std;
-
-
 
 
 int main(int argc, char **argv) {
 	using namespace boost::program_options;
 
 	int max_length;
-	string input1_name, input2_name, output_name, blosum_name;
+	string input1_name, input2_name, output_name, blosum_name, debug_name;
 
 	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 (output|-)");
 	desc.add_options()
@@ -71,14 +65,18 @@ int main(int argc, char **argv) {
 	auto input1 = read_vformat(input1_file), input2 = read_vformat(input2_file);
 
 	// output
-	ostream *output;
-	if(output_name == "-") output = &cout;
-	else output = new ofstream{output_name};
+	ostream *output_file;
+	if(output_name == "-") output_file = &cout;
+	else output_file = new ofstream{output_name};
 
 	// compute alignment
-	auto runs = align(input1, input2, max_length, score, [](float x){return x;});
-	for(auto e : runs)
-		*output << e.start_i() << ' ' << e.start_j() << ' ' << e.length()
+	vector<entry> output;
+	auto matrix = align(back_inserter(output), input1, input2,
+		max_length, score, [](float x){return x;});
+	for(auto e : output)
+		*output_file << e.start_i() << ' ' << e.start_j() << ' ' << e.length()
 		        << ' ' << e.run_value << '\n';
 
+	if(debug_name.size() > 0)
+		debug(debug_name, input1, input2, matrix, output);
 }

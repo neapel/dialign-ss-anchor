@@ -8,13 +8,12 @@
 #include <cairo/cairo-pdf.h>
 
 template<typename T, typename T1>
-void debug(sequence a, sequence b, const T &f, const T1 &runs) {
-	if(debug_name.size() == 0) return;
+void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &runs) {
 	using namespace std;
 
 	// a/i rows=x. b/j columns=y.
 	const double cell = 10;
-	auto surf = cairo_pdf_surface_create(debug_name.c_str(), (a.size() + 3) * cell, (b.size() + 3) * cell);
+	auto surf = cairo_pdf_surface_create(filename.c_str(), (a.size() + 3) * cell, (b.size() + 3) * cell);
 	auto ctx = cairo_create(surf);
 	cairo_set_line_width(ctx, cell/20);
 	cairo_translate(ctx, 2 * cell, 2 * cell);

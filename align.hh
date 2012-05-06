@@ -41,7 +41,8 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
  *   }
  * }
  */
-std::vector<entry> align(sequence a, sequence b, size_t max_run, blosum score, std::function<float(float)> weight) {
+template<class OutputIterator>
+std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b, size_t max_run, blosum score, std::function<float(float)> weight) {
 	using namespace std;
 	vector<vector<entry>> f{a.size(), vector<entry>{b.size(), entry()}};
 
@@ -70,15 +71,12 @@ std::vector<entry> align(sequence a, sequence b, size_t max_run, blosum score, s
 	vector<entry> runs;
 	entry e = f[a.size() - 1][b.size() - 1];
 	while(true) {
-		runs.push_back(e);
+		*out++ = e;
 		if(e.n < e.i && e.n < e.j)
 			e = f[e.i - e.n - 1][e.j - e.n - 1];
 		else break;
 	}
 
-	// Debug
-	debug(a, b, f, runs);
-
-	return runs;
+	return f;
 }
 
