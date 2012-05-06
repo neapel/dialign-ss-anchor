@@ -6,6 +6,7 @@
 #include <sstream>
 #include <map>
 #include <unordered_map>
+#include <vector>
 
 typedef std::unordered_map<char, std::unordered_map<char, float>> blosum;
 
@@ -25,14 +26,24 @@ blosum read_blosum(std::istream &input) {
 }
 
 
+/** Sequence with auxiliary information. */
+struct position {
+	char value;
+	std::vector<float> aux;
+	position(char v, std::vector<float> a = std::vector<float>()) : value(v), aux(a) {}
+	operator char() { return value; }
+};
 
-typedef std::map<std::string, std::string> sequences;
+typedef std::vector<position> sequence;
+
+typedef std::map<std::string, sequence> named_sequences;
 
 /** Reads a fasta file into a map. */
-sequences read_fasta(std::istream &input) {
+named_sequences read_fasta(std::istream &input) {
 	using namespace std;
-	sequences seqs;
-	string name, data;
+	named_sequences seqs;
+	string name;
+	sequence data;
 	while(input) {
 		string line;
 		getline(input, line);
@@ -41,14 +52,43 @@ sequences read_fasta(std::istream &input) {
 			if(data.size() > 0) seqs[name] = data;
 			istringstream ss{line.substr(1)};
 			ss >> name;
-			data = "";
+			data = sequence();
 		} else {
-			data.append(line);
+			for(auto c : line)
+				data.push_back(position(c));
 		}
 	}
 	if(data.size() > 0) seqs[name] = data;
 	return seqs;
 }
+
+
+/** Reads a sequence in PSIPRED VFORMAT format:
+ * comments with '#', blank lines.
+ * columns: index, residue, structure, C prob, H prob, E prob
+ */
+sequence read_vformat(std::istream &input) {
+	using namespace std;
+	sequence seq;
+	while(input) {
+		string line;
+		getline(input, line);
+		if(line.size() == 0 || line[0] == '#') continue;
+		istringstream ss{line};
+		size_t index;
+		char res, struc;
+		ss >> index >> res >> struc;
+		vector<float> data;
+		while(ss) {
+			float value;
+			ss >> value;
+			data.push_back(value);
+		}
+		seq.push_back(position(res, data));
+	}
+	return seq;
+}
+
 
 
 #endif

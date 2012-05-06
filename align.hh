@@ -41,7 +41,7 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
  *   }
  * }
  */
-std::vector<entry> align(std::string a, std::string b, size_t max_run, blosum score, std::function<float(float)> weight) {
+std::vector<entry> align(sequence a, sequence b, size_t max_run, blosum score, std::function<float(float)> weight) {
 	using namespace std;
 	vector<vector<entry>> f{a.size(), vector<entry>{b.size(), entry()}};
 

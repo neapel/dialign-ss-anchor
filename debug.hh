@@ -8,7 +8,7 @@
 #include <cairo/cairo-pdf.h>
 
 template<typename T, typename T1>
-void debug(std::string a, std::string b, const T &f, const T1 &runs) {
+void debug(sequence a, sequence b, const T &f, const T1 &runs) {
 	if(debug_name.size() == 0) return;
 	using namespace std;
 
