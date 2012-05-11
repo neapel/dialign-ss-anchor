@@ -42,7 +42,7 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
  * }
  */
 template<class OutputIterator>
-std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b, size_t max_run, std::function<float(position, position)> score, std::function<float(float)> weight) {
+std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b, size_t max_run, std::function<float(sequence, sequence)> score) {
 	using namespace std;
 	vector<vector<entry>> f{a.size(), vector<entry>{b.size(), entry()}};
 
@@ -51,11 +51,13 @@ std::vector<std::vector<entry>> align(OutputIterator out, sequence a, sequence b
 		for(size_t j = 0 ; j < b.size() ; j++) {
 			vector<entry> cases;
 			// shortest to longest run.
-			float run_value = 0;
 			for(size_t n = 0 ; n <= max_run && n <= i && n <= j ; n++) {
-				run_value += score(a[i - n], b[j - n]);
 				entry e{i, j, n};
-				e.value = e.run_value = weight(run_value);
+				// score this run
+				e.value = e.run_value = score(
+					sequence(a.begin() + (i - n), a.begin() + (i + 1)),
+					sequence(b.begin() + (j - n), b.begin() + (j + 1)));
+				// best run before this one
 				if(n < i && n < j)
 					e.value += f[i - n - 1][j - n - 1].value;
 				cases.push_back(e);

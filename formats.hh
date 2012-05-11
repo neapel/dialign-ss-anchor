@@ -25,6 +25,21 @@ blosum read_blosum(std::istream &input) {
 	return mat;
 }
 
+typedef std::unordered_map<size_t, std::unordered_map<int, float>> blosum_weights;
+
+// Reads the BLOSUM weights in [runlength sum value]* format.
+blosum_weights read_blosum_weights(std::istream &input) {
+	blosum_weights w;
+	while(input) {
+		size_t len;
+		int sum;
+		float value;
+		input >> len >> sum >> value;
+		w[len][sum] = value;
+	}
+	return w;
+}
+
 
 /** Sequence with auxiliary information. */
 struct position {
