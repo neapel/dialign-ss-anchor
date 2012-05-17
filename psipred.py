@@ -3,9 +3,9 @@
 Run PSIPRED on PSI-BLAST output.
 """
 
-import subprocess
-from tempfile import mkdtemp, TemporaryFile
-from os import path, remove, rmdir
+import sys
+from subprocess import *
+from os import path, mkdir
 from Bio import SeqIO
 
 # The name of the BLAST+ data bank
@@ -14,20 +14,18 @@ DBNAME = 'psipred/db/uniref90filt'
 PSIDIR = 'psipred'
 
 # Where the PSIPRED V3 programs have been installed
-EXECDIR = path.join(PSIDIR, 'src')
+PSIPRED = path.join(PSIDIR, 'bin/psipred')
 
 # Where the PSIPRED V3 data files have been installed
 DATADIR = path.join(PSIDIR, 'data')
 
+# Where to cache PSSM, PSIPRED output
+CACHEDIR = 'cache'
 
-def psipred_stream(in_stream, out_file):
-	tmpdir = mkdtemp()
-	checkpoint_file = path.join(tmpdir, 'checkpoint')
-	matrix_file = path.join(tmpdir, 'matrix')
-	pass1_file = path.join(tmpdir, 'pass1')
 
-	# run a BLAST search with input:
-	subprocess.check_call([
+def run_blast(seq, checkpoint_file):
+	''' Run a BLAST search for input sequence, write PSSM. '''
+	blast = Popen([
 		'psiblast',
 		'-db', DBNAME,
 		'-query', '-', # stdin
@@ -35,53 +33,43 @@ def psipred_stream(in_stream, out_file):
 		'-out_pssm', checkpoint_file,
 		'-num_iterations', '3',
 		'-num_alignments', '0', # show no alignments
-		'-num_threads', '4' # parallel threads to use
-	], stdin=in_stream)
+		'-num_threads', '4', # parallel threads to use
+		'-out', '/dev/null', # quiet
+	], stdin=PIPE)
 
-	# Convert checkpoint to matrix:
-	with open(matrix_file, 'w') as f:
-		subprocess.check_call([
-			path.join(EXECDIR, 'chkparse'),
-			checkpoint_file # input file
-		], stdout=f)
-	remove(checkpoint_file)
-
-	# First pass
-	with open(pass1_file, 'w') as f:
-		subprocess.check_call([
-			path.join(EXECDIR, 'psipred'),
-			matrix_file, # input file
-			path.join(DATADIR, 'weights.dat'), # weights
-			path.join(DATADIR, 'weights.dat2'),
-			path.join(DATADIR, 'weights.dat3'),
-		], stdout=f)
-	remove(matrix_file)
-	
-	# Second pass
-	subprocess.check_call([
-		path.join(EXECDIR, 'psipass2'),
-		path.join(DATADIR, 'weights_p2.dat'), # weights
-		'1', # itercount
-		'1.0', # DCA
-		'1.0', # DCB
-		out_file, # output
-		pass1_file # input
-	])
-	remove(pass1_file)
-	rmdir(tmpdir)
+	SeqIO.write(seq, blast.stdin, 'fasta')
+	blast.stdin.close()
+	blast.wait()
 
 
-def psipred(seq, out_file):
-	with TemporaryFile() as f:
-		SeqIO.write(seq, f, 'fasta')
-		f.seek(0)
-		psipred_stream(f, out_file)
+def run_psipred(in_file, out_file):
+	''' Run PSIPRED on a PSSM. '''
+	psipred = Popen([
+		PSIPRED,
+		# first pass
+		'--first', path.join(DATADIR, 'weights.dat'),
+		'--first', path.join(DATADIR, 'weights.dat2'),
+		'--first', path.join(DATADIR, 'weights.dat3'),
+		# second pass
+		'--second', path.join(DATADIR, 'weights_p2.dat'),
+		#'--iter', '1',
+		#'--dca', '1.0',
+		#'--dcb', '1.0',
+	], stdin=in_file, stdout=out_file)
+	psipred.wait()
 
+
+def cached(seq):
+	if not path.exists(CACHEDIR):
+		mkdir(CACHEDIR)
+	pred_name = path.join(CACHEDIR, seq.id + '.ss')
+	if not path.exists(pred_name):
+		pssm_name = path.join(CACHEDIR, seq.id + '.pssm')
+		if not path.exists(pssm_name):
+			run_blast(seq, pssm_name)
+		run_psipred(open(pssm_name, 'r'), open(pred_name, 'w'))
+	return pred_name
 
 if __name__ == '__main__':
-	import sys
-
-	infile = sys.argv[1]
-	outfile = infile + '.psipred'
-	seq = next(SeqIO.parse(infile, 'fasta'))
-	psipred(seq, outfile)
+	for seq in SeqIO.parse(sys.stdin, 'fasta'):
+		print seq.id, '=>', cached(seq)

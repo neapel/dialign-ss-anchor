@@ -4,7 +4,7 @@ from os import path, environ
 import subprocess
 
 from Bio import SeqIO, AlignIO
-from psipred import psipred
+import psipred
 
 CACHE_DIR = 'sec'
 DIALIGN_ROOT = 'dialign/dialign_package'
@@ -12,16 +12,9 @@ DIALIGN = path.join(DIALIGN_ROOT, 'src/dialign2-2')
 DIALIGN_DIR = path.join(DIALIGN_ROOT, 'dialign2_dir')
 
 def structure(seqs):
-	"""
-	Run PSIPRED to guess secondary structure if not cached
-	"""
+	''' Run PSIPRED to guess secondary structure '''
 	for record in seqs:
-		record.secname = path.join(CACHE_DIR, record.id + '.v')
-		if path.exists(record.secname):
-			print 'cached:', record.id
-		else:
-			print 'psipred:', record.id
-			psipred(record, record.secname)
+		record.secname = psipred.cached(record)
 		yield record
 
 
@@ -52,6 +45,7 @@ def dialign(filename):
 		'-fa', # fasta output
 		filename
 	], env = env)
+
 
 if __name__ == '__main__':
 	import sys
