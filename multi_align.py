@@ -2,14 +2,11 @@
 
 from os import path, environ
 import subprocess
+from tempfile import NamedTemporaryFile
 
 from Bio import SeqIO, AlignIO
 import psipred
-
-CACHE_DIR = 'sec'
-DIALIGN_ROOT = 'dialign/dialign_package'
-DIALIGN = path.join(DIALIGN_ROOT, 'src/dialign2-2')
-DIALIGN_DIR = path.join(DIALIGN_ROOT, 'dialign2_dir')
+import dialign
 
 def structure(seqs):
 	''' Run PSIPRED to guess secondary structure '''
@@ -25,36 +22,30 @@ def anchors(seqs, output):
 	for i in range(len(seqs)):
 		for j in range(i):
 			print 'anchors:', seqs[i].id, '&', seqs[j].id
-			runs = subprocess.check_output([
-				'./align',
-				'--blosum', 'dialign-blosum.dat',
-				'--weights', 'weights.txt',
-				seqs[i].secname,
-				seqs[j].secname
-			])
-			for line in runs.splitlines():
-				print >>output, (i + 1), (j + 1), line
+			try:
+				runs = subprocess.check_output([
+					'./align',
+					'--blosum', 'dialign-blosum.dat',
+					'--weights', 'weights.txt',
+					seqs[i].secname,
+					seqs[j].secname
+				], stderr=subprocess.STDOUT)
+				for line in runs.splitlines():
+					print >>output, (i + 1), (j + 1), line
+			except subprocess.CalledProcessError, e:
+				print 'error:', ' '.join(e.cmd)
+				#raise e
 
 
-def dialign(filename):
-	env = {'DIALIGN2_DIR': DIALIGN_DIR}
-	env.update(environ)
-	subprocess.check_call([
-		DIALIGN,
-		'-anc', # anchors
-		'-fa', # fasta output
-		filename
-	], env = env)
+def run(name, **kwargs):
+	anc_f = NamedTemporaryFile()
+	seqs = list(structure(SeqIO.parse(name, 'fasta')))
+	anchors(seqs, anc_f)
+	return dialign.run(name, anchors=anc_f.name, **kwargs)
 
 
 if __name__ == '__main__':
 	import sys
-	name = sys.argv[1]
-	seqs = list(structure(SeqIO.parse(name, "fasta")))
-
-	basename, _ = path.splitext(name)
-	with open(basename + '.anc', 'w') as f:
-		anchors(seqs, f)
-	dialign(name)
-	aln = next(AlignIO.parse(basename + '.fa', 'fasta'))
+	out = run(sys.argv[1], fasta=True)['fasta']
+	aln = next(AlignIO.parse(out, 'fasta'))
 	AlignIO.write(aln, sys.stdout, 'clustal')

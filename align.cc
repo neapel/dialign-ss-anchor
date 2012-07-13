@@ -1,5 +1,6 @@
 #include "formats.hh"
 #include "align.hh"
+#include "score.hh"
 #include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
@@ -10,7 +11,7 @@ using namespace std;
 int main(int argc, char **argv) {
 	using namespace boost::program_options;
 
-	string input1_name, input2_name, output_name, blosum_name, blosum_weights_name, debug_name;
+	string input1_name, input2_name, output_name, blosum_name, blosum_weights_name;
 
 	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 (output|-)");
 	desc.add_options()
@@ -18,9 +19,13 @@ int main(int argc, char **argv) {
 		("blosum,b", value<string>(&blosum_name)->required(),
 		 "blosum matrix in 3-column format.")
 		("weights,w", value<string>(&blosum_weights_name)->required(),
-		 "weights for blosum scores by run length.")
+		 "weights for blosum scores by run length.");
+#if CAIRO_FOUND
+	string debug_name;
+	desc.add_options()
 		("debug,d", value<string>(&debug_name)->implicit_value("debug.pdf"),
 		 "dump the DP matrix into a PDF.");
+#endif
 
 	options_description hidden;
 	hidden.add_options()
@@ -56,53 +61,50 @@ int main(int argc, char **argv) {
 	}
 
 	// read blosum
-	ifstream blosum_file{blosum_name};
-	blosum score = read_blosum(blosum_file);
+	blosum_t blosum;
+	{
+		ifstream i{blosum_name};
+		i >> blosum;
+	}
 
 	// read blosum weights
-	ifstream blosum_weights_file{blosum_weights_name};
-	blosum_weights score_weight = read_blosum_weights(blosum_weights_file);
-	size_t max_length = 0;
-	for(auto p : score_weight) if(p.first > max_length) max_length = p.first;
+	blosum_weights_t blosum_weights;
+	{
+		ifstream i{blosum_weights_name};
+		i >> blosum_weights;
+	}
+	size_t max_length = blosum_weights.size() - 2;
 
 	// read input
-	ifstream input1_file{input1_name}, input2_file{input2_name};
-	auto input1 = read_vformat(input1_file), input2 = read_vformat(input2_file);
+	typedef sequence<3> sequence_t;
+	sequence_t input1, input2;
+	{
+		ifstream i1{input1_name};
+		i1 >> input1;
+		ifstream i2{input2_name};
+		i2 >> input2;
+	}
 
 	// output
 	ostream *output_file;
 	if(output_name == "-") output_file = &cout;
 	else output_file = new ofstream{output_name};
 
+	// scorers
+	blosum_score<sequence_t> s0{blosum, blosum_weights};
+	profile_score<sequence_t> s1;
+
 	// compute alignment
 	vector<entry> output;
 	auto matrix = align(back_inserter(output), input1, input2, max_length,
-		[&score, &score_weight](sequence a, sequence b) {
-			const size_t len = a.size(); // == b.size()
-			const size_t aux_len = a[0].aux.size();
-			// weighted BLOSUM score
-			int blosum = 0;
-			for(size_t i = 0 ; i < len ; i++)
-				blosum += score[a[i]][b[i]];
-			const float weight = score_weight[len][blosum];
-			// structure score
-			float struc_weight = 0;
-			for(size_t k = 0 ; k < aux_len ; k++) {
-				float sum_a = 0, sum_b = 0;
-				for(size_t i = 0 ; i < len ; i++) {
-					sum_a += a[i].aux[k];
-					sum_b += b[i].aux[k];
-				}
-				struc_weight += (sum_a / aux_len) * (sum_b / aux_len);
-			}
-			struc_weight /= aux_len;
-			return weight * struc_weight;
-		}
+		s0 * s1
 	);
 	for(auto e : output)
 		*output_file << (e.start_i() + 1) << ' ' << (e.start_j() + 1) << ' ' << e.length()
 		        << ' ' << e.run_value << '\n';
 
+#if CAIRO_FOUND
 	if(debug_name.size() > 0)
 		debug(debug_name, input1, input2, matrix, output);
+#endif
 }

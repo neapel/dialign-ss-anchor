@@ -1,5 +1,6 @@
 #ifndef __DEBUG_HH__
 #define __DEBUG_HH__
+#if CAIRO_FOUND
 
 #include <vector>
 #include <string>
@@ -7,8 +8,8 @@
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 
-template<typename T, typename T1>
-void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &runs) {
+template<typename T, typename T1, size_t aux_count>
+void debug(std::string filename, sequence<aux_count> a, sequence<aux_count> b, const T &f, const T1 &runs) {
 	using namespace std;
 	const float colors[][3] = {
 		{196/255.0, 117/255.0, 126/255.0},
@@ -20,7 +21,6 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 
 	// a/i rows=x. b/j columns=y.
 	const double cell = 10, hcell = cell/2;
-	const size_t aux_count = a[0].aux.size();
 	const float aux_margin = aux_count * hcell;
 	auto surf = cairo_pdf_surface_create(filename.c_str(), (a.size() + 3) * cell + aux_margin, (b.size() + 3) * cell + aux_margin);
 	auto ctx = cairo_create(surf);
@@ -53,7 +53,7 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 	cairo_set_font_size(ctx, cell);
 	const double margin = 0.3 * cell;
 	for(size_t i = 0 ; i < a.size() ; i++) {
-		char text[2] = {a[i], '\0'};
+		char text[2] = {aa_to_char(a[i].value), '\0'};
 		cairo_text_extents_t extents;
 		cairo_text_extents(ctx, text, &extents);
 		cairo_move_to(ctx, (i + 0.5) * cell - extents.width/2 - extents.x_bearing, -margin);
@@ -65,7 +65,7 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 	cairo_translate(ctx, -cell, 0.5 * cell + (extents.ascent - extents.descent)/2);
 
 	for(size_t j = 0 ; j < b.size() ; j++) {
-		char text[2] = {b[j], '\0'};
+		char text[2] = {aa_to_char(b[j].value), '\0'};
 		cairo_move_to(ctx, 0, j * cell);
 		cairo_show_text(ctx, text);
 	}
@@ -159,5 +159,5 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 }
 
 
-
+#endif
 #endif
