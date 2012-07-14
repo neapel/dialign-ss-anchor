@@ -23,11 +23,11 @@ std::istream &operator >>(std::istream &input, blosum_t &mat) {
 	for(auto &row : mat)
 		for(auto &col : row)
 			col = guard;
-	while(input) {
-		char row, col;
-		size_t value;
-		input >> row >> col >> value;
-		residue row_r = char_to_aa(row), col_r = char_to_aa(col);
+
+	char row, col;
+	size_t value;
+	while(input >> row >> col >> value) {
+		const residue row_r = char_to_aa(row), col_r = char_to_aa(col);
 		if(row_r != residue::Xaa && col_r != residue::Xaa)
 			mat[(size_t)row_r][(size_t)col_r] = value;
 	}
@@ -48,11 +48,10 @@ typedef std::vector<std::vector<float>> blosum_weights_t;
 // Into a 2D vector with dim0: sequence length, dim1: sum
 std::istream &operator >>(std::istream &input, blosum_weights_t &w) {
 	w.push_back(std::vector<float>());
-	while(input) {
-		size_t len;
-		int sum;
-		float value;
-		input >> len >> sum >> value;
+	size_t len;
+	int sum;
+	float value;
+	while(input >> len >> sum >> value) {
 		if(len + 1 != w.size()) w.push_back(std::vector<float>());
 		w.back().push_back(value);
 		if(w[len][sum] != value) throw std::runtime_error("Invalid weights");
@@ -86,17 +85,17 @@ struct sequence : std::vector<position<N>> {
 template<size_t N>
 std::istream &operator >>(std::istream &input, sequence<N> &seq) {
 	using namespace std;
-	while(input) {
-		string line;
-		getline(input, line);
+	string line;
+	while(getline(input, line)) {
 		if(line.size() == 0 || line[0] == '#') continue;
 		istringstream ss{line};
 		size_t index;
 		char res, struc;
-		ss >> index >> res >> struc;
-		array<float, N> data;
-		for(auto &x : data) ss >> x;
-		seq.push_back(position<N>(char_to_aa(res), data));
+		if(ss >> index >> res >> struc) {
+			array<float, N> data;
+			for(auto &x : data) ss >> x;
+			seq.push_back(position<N>(char_to_aa(res), data));
+		}
 	}
 	return input;
 }

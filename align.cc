@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 	string blosum_name, blosum_weights_name;
 	vector<string> input_names;
 
-	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 (output|-)");
+	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 ... > output");
 	desc.add_options()
 		("help,h", "show this help message")
 		("blosum,b", value<string>(&blosum_name)->default_value("blosum.dat"),
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 		 "input files");
 
 	positional_options_description pos;
-	pos.add("input", 1);
+	pos.add("input", -1);
 
 	options_description options;
 	options.add(desc).add(hidden);
@@ -57,15 +57,23 @@ int main(int argc, char **argv) {
 	// read blosum
 	blosum_t blosum;
 	{
-		ifstream i{blosum_name};
-		i >> blosum;
+		ifstream is{blosum_name};
+		if(!is) {
+			cerr << "Could not read blosum: " << blosum_name << endl;
+			return EXIT_FAILURE;
+		}
+		is >> blosum;
 	}
 
 	// read blosum weights
 	blosum_weights_t blosum_weights;
 	{
-		ifstream i{blosum_weights_name};
-		i >> blosum_weights;
+		ifstream is{blosum_weights_name};
+		if(!is) {
+			cerr << "Could not read weights: " << blosum_weights_name << endl;
+			return EXIT_FAILURE;
+		}
+		is >> blosum_weights;
 	}
 	size_t max_length = blosum_weights.size() - 2;
 
@@ -73,26 +81,32 @@ int main(int argc, char **argv) {
 	typedef sequence<3> sequence_t;
 	vector<sequence_t> inputs;
 	for(auto name : input_names) {
-		ifstream i{name};
 		sequence_t input;
-		i >> input;
+		ifstream is{name};
+		if(!is) {
+			cerr << "Could not read input: " << name << endl;
+			return EXIT_FAILURE;
+		}
+		is >> input;
 		inputs.push_back(input);
 	}
 
-	// scorers
+	// initialise scorers
 	blosum_score<sequence_t> s0{blosum, blosum_weights};
 	profile_score<sequence_t> s1;
 
 	// compute alignments between each sequence
 	for(size_t i1 = 0 ; i1 != inputs.size() ; i1++) {
 		for(size_t i2 = i1 + 1 ; i2 != inputs.size() ; i2++) {
+			// align
 			vector<entry> output;
 			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length,
 				s0 * s1
 			);
+			// dump as dialign anchors
 			for(auto e : output)
-				cout << i1 << ' ' << i2 << ' '
-				     << (e.start_i() + 1) << ' ' << (e.start_j() + 1)
+				cout << (i1 + 1) << ' ' << (i2 + 1)
+				     << ' ' << (e.start_i() + 1) << ' ' << (e.start_j() + 1)
 				     << ' ' << e.length() << ' ' << e.run_value << '\n';
 #if CAIRO_FOUND
 			if(debug_name.size() > 0)
@@ -101,4 +115,5 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	return EXIT_SUCCESS;
 }
