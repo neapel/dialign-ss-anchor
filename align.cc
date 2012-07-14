@@ -11,14 +11,15 @@ using namespace std;
 int main(int argc, char **argv) {
 	using namespace boost::program_options;
 
-	string input1_name, input2_name, output_name, blosum_name, blosum_weights_name;
+	string blosum_name, blosum_weights_name;
+	vector<string> input_names;
 
 	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 (output|-)");
 	desc.add_options()
 		("help,h", "show this help message")
-		("blosum,b", value<string>(&blosum_name)->required(),
+		("blosum,b", value<string>(&blosum_name)->default_value("blosum.dat"),
 		 "blosum matrix in 3-column format.")
-		("weights,w", value<string>(&blosum_weights_name)->required(),
+		("weights,w", value<string>(&blosum_weights_name)->default_value("weights.dat"),
 		 "weights for blosum scores by run length.");
 #if CAIRO_FOUND
 	string debug_name;
@@ -29,17 +30,11 @@ int main(int argc, char **argv) {
 
 	options_description hidden;
 	hidden.add_options()
-		("input1", value<string>(&input1_name)->required(),
-		 "input file")
-		("input2", value<string>(&input2_name)->required(),
-		 "input file")
-		("output", value<string>(&output_name)->default_value("-"),
-		 "output file, or -");
+		("input", value<vector<string>>(&input_names)->multitoken(),
+		 "input files");
 
 	positional_options_description pos;
-	pos.add("input1", 1)
-		.add("input2", 1)
-		.add("output", 1);
+	pos.add("input", 1);
 
 	options_description options;
 	options.add(desc).add(hidden);
@@ -53,10 +48,9 @@ int main(int argc, char **argv) {
 		return EXIT_SUCCESS;
 	}
 
-	try {
-		notify(vm);
-	} catch(required_option e) {
-		cerr << e.what() << endl << desc << endl;
+	notify(vm);
+	if(input_names.size() < 2) {
+		cerr << "Supply at least two input files." << endl << desc << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -75,36 +69,36 @@ int main(int argc, char **argv) {
 	}
 	size_t max_length = blosum_weights.size() - 2;
 
-	// read input
+	// read inputs
 	typedef sequence<3> sequence_t;
-	sequence_t input1, input2;
-	{
-		ifstream i1{input1_name};
-		i1 >> input1;
-		ifstream i2{input2_name};
-		i2 >> input2;
+	vector<sequence_t> inputs;
+	for(auto name : input_names) {
+		ifstream i{name};
+		sequence_t input;
+		i >> input;
+		inputs.push_back(input);
 	}
-
-	// output
-	ostream *output_file;
-	if(output_name == "-") output_file = &cout;
-	else output_file = new ofstream{output_name};
 
 	// scorers
 	blosum_score<sequence_t> s0{blosum, blosum_weights};
 	profile_score<sequence_t> s1;
 
-	// compute alignment
-	vector<entry> output;
-	auto matrix = align(back_inserter(output), input1, input2, max_length,
-		s0 * s1
-	);
-	for(auto e : output)
-		*output_file << (e.start_i() + 1) << ' ' << (e.start_j() + 1) << ' ' << e.length()
-		        << ' ' << e.run_value << '\n';
-
+	// compute alignments between each sequence
+	for(size_t i1 = 0 ; i1 != inputs.size() ; i1++) {
+		for(size_t i2 = i1 + 1 ; i2 != inputs.size() ; i2++) {
+			vector<entry> output;
+			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length,
+				s0 * s1
+			);
+			for(auto e : output)
+				cout << i1 << ' ' << i2 << ' '
+				     << (e.start_i() + 1) << ' ' << (e.start_j() + 1)
+				     << ' ' << e.length() << ' ' << e.run_value << '\n';
 #if CAIRO_FOUND
-	if(debug_name.size() > 0)
-		debug(debug_name, input1, input2, matrix, output);
+			if(debug_name.size() > 0)
+				debug(debug_name, input1, input2, matrix, output);
 #endif
+		}
+	}
+
 }
