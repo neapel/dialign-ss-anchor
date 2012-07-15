@@ -15,29 +15,38 @@
 
 typedef std::array<std::array<size_t, (size_t)residue::Xaa>, (size_t)residue::Xaa> blosum_t;
 
-// Reads the BLOSUM matrix in [row column value]* format.
-// Doesn't care about symmetry.
+// Reads the BLOSUM matrix in triangular DIALIGN format:
+//   C S T
+//
+//  13 3 3   C
+//     8 5   S
+//       9   T
 std::istream &operator >>(std::istream &input, blosum_t &mat) {
 	using namespace std;
-	const size_t guard = numeric_limits<size_t>::max();
-	for(auto &row : mat)
-		for(auto &col : row)
-			col = guard;
+	const auto N = (size_t)residue::Xaa;
 
-	char row, col;
-	size_t value;
-	while(input >> row >> col >> value) {
-		const residue row_r = char_to_aa(row), col_r = char_to_aa(col);
-		if(row_r != residue::Xaa && col_r != residue::Xaa)
-			mat[(size_t)row_r][(size_t)col_r] = value;
+	// map file column order to internal order
+	array<size_t, N> indices;
+	for(size_t i = 0 ; i < N ; i++) {
+		char c;
+		if(!(input >> c)) throw runtime_error("Expected AA code.");
+		indices[i] = (size_t)char_to_aa(c);
 	}
 
-	for(size_t i = 0 ; i < mat.size() ; i++)
-		for(size_t j = 0 ; j < mat[i].size() ; j++)
-			if(mat[i][j] == guard) {
-				ostringstream e; e << "Missing BLOSUM value: " << aa_to_char((residue)i) << '/' << aa_to_char((residue)j);
-				throw runtime_error(e.str());
-			}
+	// read matrix.
+	for(size_t row = 0 ; row < N ; row++) {
+		for(size_t col = row ; col < N ; col++ ) {
+			size_t weight;
+			if(!(input >> weight)) throw runtime_error("Expected weight.");
+			const auto row_i = indices[row], col_i = indices[col];
+			mat[row_i][col_i] = mat[col_i][row_i] = weight;
+		}
+		char c;
+		if(!(input >> c)) throw runtime_error("Expected AA code.");
+		if(indices[row] != (size_t)char_to_aa(c))
+			throw runtime_error("AA order different for row/col.");
+	}
+
 	return input;
 }
 

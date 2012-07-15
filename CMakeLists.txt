@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.8)
 project("align" CXX)
-set(CMAKE_BUILD_TYPE RELEASE)
+
+include(CTest)
+enable_testing()
+
+set(CMAKE_BUILD_TYPE DEBUG)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
@@ -9,11 +13,6 @@ include_directories(".")
 macro(require_libraries LIBS)
 	set(CMAKE_REQUIRED_LIBRARIES  ${CMAKE_REQUIRED_LIBRARIES} ${LIBS})
 endmacro()
-
-
-# Tests
-include(CTest)
-enable_testing()
 
 
 # Boost libraries
@@ -43,7 +42,7 @@ endif()
 
 # General compiler flags
 if(CMAKE_COMPILER_IS_GNUCXX)
-	set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror --std=c++0x")
+	set(CMAKE_CXX_FLAGS "-Wall -Wextra --std=c++0x")
 
 	set(CMAKE_CXX_FLAGS_DEBUG "-g3")
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3 --static")
@@ -54,3 +53,19 @@ endif()
 # Targets
 add_executable(align align.cc)
 target_link_libraries(align ${CMAKE_REQUIRED_LIBRARIES})
+
+
+
+# Tests
+
+macro(tiny_test NAME)
+	add_executable(${NAME} "${NAME}.cc")
+	target_link_libraries(${NAME} ${CMAKE_REQUIRED_LIBRARIES})
+	add_test(
+		NAME ${NAME}
+		COMMAND ${NAME} ${ARGN}
+	)
+	add_dependencies(${NAME} align)
+endmacro()
+
+tiny_test(test_blosum blosum.dat)
