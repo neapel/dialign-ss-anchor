@@ -44,7 +44,7 @@ Sov = 100 * 1 / (N(H) + N(E) + N(C)) * (Sov1(H) + Sov1(E) + Sov1(C))
 #include <array>
 
 
-struct sov_score : scorer {
+struct sov_score {
 	const bool symmetric;
 	sov_score(bool s = true) : symmetric(s) {}
 
@@ -139,7 +139,7 @@ struct sov_score : scorer {
 		if(symmetric) for(const auto s : b_single) norm += len(s);
 	}
 
-	virtual float operator()(const seq_it &a_seq, const seq_it &b_seq, size_t len) const {
+	float operator()(const seq_it &a_seq, const seq_it &b_seq, size_t len) const {
 		using namespace std;
 		// split string into segments
 		static all_segs_t a, b;

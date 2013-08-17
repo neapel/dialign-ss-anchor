@@ -112,16 +112,12 @@ int main(int argc, char **argv) {
 	// compute alignments between each sequence
 	for(size_t i1 = 0 ; i1 != inputs.size() ; i1++) {
 		for(size_t i2 = i1 + 1 ; i2 != inputs.size() ; i2++) {
-			// initialise scorers
-			vector<shared_ptr<scorer>> sc;
-			sc.push_back(make_shared<blosum_score>(blosum, blosum_weights));
-			if(use_sov_score) sc.push_back(make_shared<sov_score>(true));
-			if(use_q3_score) sc.push_back(make_shared<q3_score>());
-			combined_score scorer{sc};
-
-			// align
 			vector<entry> output;
-			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, scorer);
+			matrix_t matrix;
+			if(use_sov_score)     matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, blosum_score(blosum, blosum_weights), sov_score()  );
+			else if(use_q3_score) matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, blosum_score(blosum, blosum_weights), q3_score()   );
+			else                  matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, blosum_score(blosum, blosum_weights), dummy_score());
+
 			// dump as dialign anchors
 			for(auto e : output)
 				cout << (i1 + 1) << ' ' << (i2 + 1)

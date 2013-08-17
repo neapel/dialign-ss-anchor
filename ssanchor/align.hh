@@ -43,31 +43,35 @@ typedef std::vector< std::vector<entry> > matrix_t;
  *   }
  * }
  */
-template<class OutputIterator, class Score>
-matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t max_run, Score score) {
+template<class OutputIterator, class Score1, class Score2>
+matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t max_run, const Score1 &abs_score, const Score2 &rel_score) {
 	using namespace std;
 	matrix_t f{a.size(), vector<entry>(b.size(), entry())};
-	vector<entry> cases; cases.reserve(max_run + 5);
 
 	// Find maximum score
 	for(size_t i = 0 ; i < a.size() ; i++)
 		for(size_t j = 0 ; j < b.size() ; j++) {
-			cases.clear();
+			entry best{i, j, 0};
+			// rect. maxima:
+			if(i > 0) best = max(f[i - 1][j], best);
+			if(j > 0) best = max(f[i][j - 1], best);
 			// shortest to longest run.
 			for(size_t n = 0 ; n <= max_run && n <= i && n <= j ; n++) {
 				entry e{i, j, n};
-				// score this run
-				e.value = e.run_value = score(a.begin() + (i - n), b.begin() + (j - n), n + 1);
 				// best run before this one
-				if(n < i && n < j)
-					e.value += f[i - n - 1][j - n - 1].value;
-				cases.push_back(e);
+				if(n < i && n < j) e.value += f[i - n - 1][j - n - 1].value;
+				// score this run
+				e.run_value = abs_score(a.begin() + (i - n), b.begin() + (j - n), n + 1);
+				// might be the best. Run rel [0-1] which can only make it worse.
+				if(e.value + e.run_value >= best.value) {
+					e.run_value *= rel_score(a.begin() + (i - n), b.begin() + (j - n), n + 1);
+					// total value.
+					e.value += e.run_value;
+					// check if it's still the best.
+					best = max(e, best);
+				}
 			}
-			// rect. maxima:
-			if(i > 0) cases.push_back(f[i - 1][j]);
-			if(j > 0) cases.push_back(f[i][j - 1]);
-			// find largest score from back (i.e. equal score with lower n looses)
-			f[i][j] = *max_element(cases.rbegin(), cases.rend());
+			f[i][j] = best;
 		}
 
 	// Traceback
