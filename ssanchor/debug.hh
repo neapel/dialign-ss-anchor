@@ -150,7 +150,7 @@ void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &r
 	for(auto e : corners) {
 		cairo_move_to(ctx, (e.i + 0.1) * cell, (e.j + 0.9) * cell);
 		ostringstream text;
-		text << e.value << ", " << e.run_value << ", n=" << e.n;
+		text << e.value;
 		cairo_show_text(ctx, text.str().c_str());
 	}
 	cairo_restore(ctx);
