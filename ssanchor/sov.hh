@@ -77,7 +77,9 @@ struct sov_score : scorer {
 	// create lists of overlapping pairs and non-overlapped segments.
 	void overlapping(const segs_t &as, const segs_t &bs,
 	                 segs_pair_t &pairs, segs_t &a_single, segs_t &b_single) const {
-		std::vector<bool> got_as(as.size(), false), got_bs(bs.size(), false);
+		static std::vector<bool> got_as, got_bs;
+		got_as.assign(as.size(), false);
+		got_bs.assign(bs.size(), false);
 		for(size_t ai = 0 ; ai < as.size() ; ai++) {
 			const auto a = as[ai];
 			for(size_t bi = 0 ; bi < bs.size() ; bi++) {
@@ -115,8 +117,10 @@ struct sov_score : scorer {
 
 	// calculate SOV for one type of segment
 	void sov_type(const segs_t &a, const segs_t &b, float &value, float &norm) const {
-		segs_pair_t pairs; // pairs of overlapping segments
-		segs_t a_single, b_single; // non-overlapping segments
+		static segs_pair_t pairs; // pairs of overlapping segments
+		static segs_t a_single, b_single; // non-overlapping segments
+		pairs.clear();
+		a_single.clear(); b_single.clear();
 		overlapping(a, b, pairs, a_single, b_single);
 		// total SOV score
 		for(const auto p : pairs) {
@@ -138,7 +142,8 @@ struct sov_score : scorer {
 	virtual float operator()(const seq_it &a_seq, const seq_it &b_seq, size_t len) const {
 		using namespace std;
 		// split string into segments
-		all_segs_t a, b;
+		static all_segs_t a, b;
+		for(size_t i = 0 ; i < 3 ; i++) { a[i].clear(); b[i].clear(); }
 		runs(a_seq, len, a);
 		runs(b_seq, len, b);
 
