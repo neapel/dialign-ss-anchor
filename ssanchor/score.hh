@@ -2,79 +2,53 @@
 #define __SCORE_HH__
 
 #include "formats.hh"
-#include <array>
+#include <vector>
+#include <memory>
+
+struct scorer {
+	virtual float operator()(const seq_it &a, const seq_it &b, size_t len) const = 0;
+};
 
 
 // Weighted BLOSUM score
-template<class T> struct blosum_score;
-
-template<template<size_t> class sequence_t, size_t N>
-struct blosum_score<sequence_t<N>> {
+struct blosum_score : scorer {
 	const blosum_t &blosum;
 	const blosum_weights_t &weight;
 	blosum_score(const blosum_t &blosum, const blosum_weights_t &weight) : blosum(blosum), weight(weight) {}
 	
-	template<class Iterator>
-	float operator()(const Iterator &a_begin, const Iterator &a_end,
-	                 const Iterator &b_begin, const Iterator &b_end) const {
-		size_t len = 0, s = 0;
-		for(auto a = a_begin, b = b_begin ; a != a_end && b != b_end ; a++, b++, len++)
-			if(a->value != residue::Xaa && b->value != residue::Xaa)
-				s += blosum[(size_t)a->value][(size_t)b->value];
+	virtual float operator()(const seq_it &a, const seq_it &b, size_t len) const {
 		if(len >= weight.size()) throw std::domain_error("Sequence too long for weights");
-		if(s >= weight[len].size()) {
-			//std::cerr << "sum=" << s << " max=" << weight[len].size() << std::endl;
-			//return weight[len].back();
-			throw std::domain_error("Blosum to large for weights");
-		} 
+		size_t s = 0;
+		for(size_t i = 0 ; i < len ; i++)
+			if(a[i].value != residue::Xaa && b[i].value != residue::Xaa)
+				s += blosum[static_cast<size_t>(a[i].value)][static_cast<size_t>(b[i].value)];
+		if(s >= weight[len].size()) throw std::domain_error("Blosum to large for weights");
 		return weight[len][s];
 	}
 };
 
 
-// structure score
-template<class T> struct profile_score;
-
-template<template<size_t> class sequence_t, size_t N>
-struct profile_score<sequence_t<N>> {
-	template<class Iterator>
-	float operator()(const Iterator &a_begin, const Iterator &a_end,
-	                 const Iterator &b_begin, const Iterator &b_end) const {
-		size_t len = 0;
-		std::array<float, N> weights_a, weights_b;
-		for(size_t k = 0 ; k < N ; k++)
-			weights_a[k] = weights_b[k] = 0;
-		for(auto a = a_begin, b = b_begin ; a != a_end && b != b_end ; a++, b++, len++)
-			for(size_t k = 0 ; k < N ; k++) {
-				weights_a[k] += a->aux[k];
-				weights_b[k] += b->aux[k];
-			}
-		float sum = 0;
-		for(size_t k = 0 ; k < N ; k++)
-			sum += (weights_a[k] / len) * (weights_b[k] / len);
-		return sum / N;
+struct q3_score : scorer {
+	virtual float operator()(const seq_it &a, const seq_it &b, size_t len) const {
+		size_t same = 0;
+		for(size_t i = 0 ; i < len ; i++) if(a[i].sec == b[i].sec) same++;
+		return 1.0f * same / len;
 	}
 };
+
 
 
 // score combinator
-template<class T0, class T1>
 struct combined_score {
-	const T0 &s0;
-	const T1 &s1;
-	combined_score(const T0 &s0, const T1 &s1) : s0(s0), s1(s1) {}
+	const std::vector<std::shared_ptr<scorer>> scorers;
 
-	template<class Iterator>
-	float operator()(const Iterator &a_begin, const Iterator &a_end,
-	                 const Iterator &b_begin, const Iterator &b_end) const {
-		return s0(a_begin, a_end, b_begin, b_end) * s1(a_begin, a_end, b_begin, b_end);
+	float operator()(const seq_it &a, const seq_it &b, size_t len) const {
+		float value = 1;
+		for(const auto &s : scorers)
+			value *= (*s)(a, b, len);
+		return value;
 	}
 };
-
-template<class T0, class T1>
-combined_score<T0, T1> operator *(const T0 &a, const T1 &b) {
-	return combined_score<T0, T1>{a, b};
-}
 
 
 #endif

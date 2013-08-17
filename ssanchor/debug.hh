@@ -2,14 +2,17 @@
 #define __DEBUG_HH__
 #if CAIRO_FOUND
 
+#include "formats.hh"
+#include "align.hh"
+
 #include <vector>
 #include <string>
 #include <sstream>
 #include <cairo/cairo.h>
 #include <cairo/cairo-pdf.h>
 
-template<typename T, typename T1, size_t aux_count>
-void debug(std::string filename, sequence<aux_count> a, sequence<aux_count> b, const T &f, const T1 &runs) {
+template<typename T, typename T1>
+void debug(std::string filename, sequence a, sequence b, const T &f, const T1 &runs) {
 	using namespace std;
 	const float colors[][3] = {
 		{196/255.0, 117/255.0, 126/255.0},
@@ -21,7 +24,7 @@ void debug(std::string filename, sequence<aux_count> a, sequence<aux_count> b, c
 
 	// a/i rows=x. b/j columns=y.
 	const double cell = 10, hcell = cell/2;
-	const float aux_margin = aux_count * hcell;
+	const float aux_margin = hcell;
 	auto surf = cairo_pdf_surface_create(filename.c_str(), (a.size() + 3) * cell + aux_margin, (b.size() + 3) * cell + aux_margin);
 	auto ctx = cairo_create(surf);
 	cairo_set_line_width(ctx, cell/20);
@@ -30,20 +33,18 @@ void debug(std::string filename, sequence<aux_count> a, sequence<aux_count> b, c
 
 	// aux info
 	cairo_save(ctx);
-
-	for(size_t k = 0 ; k < aux_count ; k++) {
-		const float kr = colors[k][0], kg = colors[k][1], kb = colors[k][2];
-		const float off = -2 * cell - k * hcell;
-		for(size_t i = 0 ; i < a.size() ; i++) {
-			cairo_rectangle(ctx, i * cell, off, cell, hcell);
-			cairo_set_source_rgba(ctx, kr, kg, kb, a[i].aux[k]);
-			cairo_fill(ctx);
-		}
-		for(size_t j = 0 ; j < b.size() ; j++) {
-			cairo_rectangle(ctx, off, j * cell, hcell, cell);
-			cairo_set_source_rgba(ctx, kr, kg, kb, b[j].aux[k]);
-			cairo_fill(ctx);
-		}
+	const float off = -2 * cell;
+	for(size_t i = 0 ; i < a.size() ; i++) {
+		const size_t k = static_cast<size_t>(a[i].sec);
+		cairo_rectangle(ctx, i * cell, off, cell, hcell);
+		cairo_set_source_rgb(ctx, colors[k][0], colors[k][1], colors[k][2]);
+		cairo_fill(ctx);
+	}
+	for(size_t j = 0 ; j < b.size() ; j++) {
+		const size_t k = static_cast<size_t>(b[j].sec);
+		cairo_rectangle(ctx, off, j * cell, hcell, cell);
+		cairo_set_source_rgb(ctx, colors[k][0], colors[k][1], colors[k][2]);
+		cairo_fill(ctx);
 	}
 	cairo_restore(ctx);
 
@@ -149,7 +150,7 @@ void debug(std::string filename, sequence<aux_count> a, sequence<aux_count> b, c
 	for(auto e : corners) {
 		cairo_move_to(ctx, (e.i + 0.1) * cell, (e.j + 0.9) * cell);
 		ostringstream text;
-		text << e.value << ", " << e.run_value;
+		text << e.value << ", " << e.run_value << ", n=" << e.n;
 		cairo_show_text(ctx, text.str().c_str());
 	}
 	cairo_restore(ctx);

@@ -68,6 +68,31 @@ static char aa_to_char(residue r) {
 }
 
 
+// Secondary structure codes.
+// psipred uses: H,G=H (alpha helix) / E,B=E (beta) / *=C (coil)
+// ipssp uses EHL mapping: H,G,I=H (alpha) / E,B=E (beta) / *=L (coil)
+enum class secondary : size_t {
+	Helix, Strand, Other,
+};
+
+static secondary char_to_sec(char c) {
+	switch(c) {
+		case 'h': case 'H': return secondary::Helix;
+		case 'e': case 'E': return secondary::Strand;
+		case 'c': case 'C': case 'l': case 'L': return secondary::Other;
+		default: throw std::runtime_error("Illegal input.");
+	}
+}
+
+static char sec_to_char(secondary s) {
+	switch(s) {
+		case secondary::Helix: return 'H';
+		case secondary::Strand: return 'E';
+		case secondary::Other: return 'C';
+	}
+}
+
+
 
 
 #endif

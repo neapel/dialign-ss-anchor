@@ -1,3 +1,6 @@
+#ifndef __ALIGN_HH__
+#define __ALIGN_HH__
+
 #include <functional>
 #include <vector>
 #include <algorithm>
@@ -29,8 +32,7 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
 }
 
 
-#include "debug.hh"
-
+typedef std::vector< std::vector<entry> > matrix_t;
 
 
 /* f(i,j) = max {
@@ -41,23 +43,21 @@ std::ostream &operator<<(std::ostream &o, const entry &e) {
  *   }
  * }
  */
-template<class OutputIterator, class Sequence, class Score>
-std::vector<std::vector<entry>> align(OutputIterator out, const Sequence &a, const Sequence &b, size_t max_run, Score score) {
+template<class OutputIterator, class Score>
+matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t max_run, Score score) {
 	using namespace std;
-	vector<vector<entry>> f{a.size(), vector<entry>{b.size(), entry()}};
+	matrix_t f{a.size(), vector<entry>{b.size(), entry()}};
+	vector<entry> cases; cases.reserve(max_run + 5);
 
 	// Find maximum score
 	for(size_t i = 0 ; i < a.size() ; i++)
 		for(size_t j = 0 ; j < b.size() ; j++) {
-			vector<entry> cases(max_run + 5);
+			cases.clear();
 			// shortest to longest run.
 			for(size_t n = 0 ; n <= max_run && n <= i && n <= j ; n++) {
 				entry e{i, j, n};
 				// score this run
-				e.value = e.run_value = score(
-					a.begin() + (i - n), a.begin() + (i + 1),
-					b.begin() + (j - n), b.begin() + (j + 1)
-				);
+				e.value = e.run_value = score(a.begin() + (i - n), b.begin() + (j - n), n + 1);
 				// best run before this one
 				if(n < i && n < j)
 					e.value += f[i - n - 1][j - n - 1].value;
@@ -72,7 +72,7 @@ std::vector<std::vector<entry>> align(OutputIterator out, const Sequence &a, con
 
 	// Traceback
 	entry e = f[a.size() - 1][b.size() - 1];
-	while(true) {
+	while(e.n > 0) {
 		*out++ = e;
 		if(e.n < e.i && e.n < e.j)
 			e = f[e.i - e.n - 1][e.j - e.n - 1];
@@ -82,3 +82,4 @@ std::vector<std::vector<entry>> align(OutputIterator out, const Sequence &a, con
 	return f;
 }
 
+#endif

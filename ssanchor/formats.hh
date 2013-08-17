@@ -1,5 +1,5 @@
-#ifndef __BLOSUM_HH__
-#define __BLOSUM_HH__
+#ifndef __FORMATS_HH__
+#define __FORMATS_HH__
 
 #include "aacodes.hh"
 
@@ -13,7 +13,7 @@
 #include <limits>
 #include <stdexcept>
 
-typedef std::array<std::array<size_t, (size_t)residue::Xaa>, (size_t)residue::Xaa> blosum_t;
+typedef std::array<std::array<size_t, static_cast<size_t>(residue::Xaa)>, static_cast<size_t>(residue::Xaa)> blosum_t;
 
 // Reads the BLOSUM matrix in triangular DIALIGN format:
 //   C S T
@@ -21,7 +21,7 @@ typedef std::array<std::array<size_t, (size_t)residue::Xaa>, (size_t)residue::Xa
 //  13 3 3   C
 //     8 5   S
 //       9   T
-std::istream &operator >>(std::istream &input, blosum_t &mat) {
+void read_blosum(std::istream &input, blosum_t &mat) {
 	using namespace std;
 	const auto N = (size_t)residue::Xaa;
 
@@ -46,16 +46,16 @@ std::istream &operator >>(std::istream &input, blosum_t &mat) {
 		if(indices[row] != (size_t)char_to_aa(c))
 			throw runtime_error("AA order different for row/col.");
 	}
-
-	return input;
 }
+
+
 
 
 typedef std::vector<std::vector<float>> blosum_weights_t;
 
 // Reads the BLOSUM weights in [runlength sum value]* format.
 // Into a 2D vector with dim0: sequence length, dim1: sum
-std::istream &operator >>(std::istream &input, blosum_weights_t &w) {
+void read_weights(std::istream &input, blosum_weights_t &w) {
 	w.push_back(std::vector<float>());
 	size_t len;
 	int sum;
@@ -65,34 +65,25 @@ std::istream &operator >>(std::istream &input, blosum_weights_t &w) {
 		w.back().push_back(value);
 		if(w[len][sum] != value) throw std::runtime_error("Invalid weights");
 	}
-	return input;
 }
 
 
+
 // Sequence with auxiliary information.
-template<size_t N>
 struct position {
 	residue value;
-	std::array<float, N> aux;
-	position(residue v, std::array<float, N> a = std::array<float, N>{}) : value(v), aux(a) {}
+	secondary sec;
+	position(residue v, secondary s) : value(v), sec(s) {}
 };
 
-template<size_t N>
-struct sequence : std::vector<position<N>> {
-	typedef typename std::vector<position<N>>::const_iterator const_iterator;
-
-	sequence() {}
-
-	template<class Iterator>
-	sequence(Iterator begin, Iterator end) : std::vector<position<N>>(begin, end) {}
-};
+typedef std::vector<position> sequence;
+typedef sequence::const_iterator seq_it;
 
 
 // Reads a sequence in PSIPRED VFORMAT format:
 // comments with '#', blank lines.
-// columns: index, residue, structure, C prob, H prob, E prob
-template<size_t N>
-std::istream &operator >>(std::istream &input, sequence<N> &seq) {
+// columns: index, residue, structure, {C prob, H prob, E prob}
+void read_psipred(std::istream &input, sequence &seq) {
 	using namespace std;
 	string line;
 	while(getline(input, line)) {
@@ -101,12 +92,28 @@ std::istream &operator >>(std::istream &input, sequence<N> &seq) {
 		size_t index;
 		char res, struc;
 		if(ss >> index >> res >> struc) {
-			array<float, N> data;
-			for(auto &x : data) ss >> x;
-			seq.push_back(position<N>(char_to_aa(res), data));
+			seq.push_back(position(char_to_aa(res), char_to_sec(struc)));
 		}
 	}
-	return input;
+}
+
+// IPSSP FASTA format:
+// >name
+// residue*
+// structure*
+void read_ipssp(std::istream &input, sequence &seq) {
+	using namespace std;
+	string name, residue, structure;
+	if(!getline(input, name) || name.size() == 0 || name[0] != '>')
+		throw runtime_error("Expected >{name}.");
+	if(!getline(input, residue) || residue.size() == 0)
+		throw runtime_error("Expected residues.");
+	if(!getline(input, structure) || structure.size() == 0)
+		throw runtime_error("Expected structure.");
+	if(residue.size() != structure.size())
+		throw runtime_error("Expected structure info for each residue.");
+	for(size_t i = 0 ; i < residue.size() ; i++)
+		seq.push_back(position(char_to_aa(residue[i]), char_to_sec(structure[i])));
 }
 
 

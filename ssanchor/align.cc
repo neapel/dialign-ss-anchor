@@ -1,10 +1,15 @@
 #include "formats.hh"
 #include "align.hh"
 #include "score.hh"
+#include "sov.hh"
+#include "debug.hh"
+
 #include <boost/program_options.hpp>
 #include <string>
 #include <fstream>
 #include <ostream>
+#include <memory>
+
 using namespace std;
 
 
@@ -13,20 +18,33 @@ int main(int argc, char **argv) {
 
 	string blosum_name, blosum_weights_name;
 	vector<string> input_names;
+	bool use_ipssp_format, use_sov_score, use_q3_score;
 
 	options_description desc("Usage: " + string(argv[0]) + " [options] input1 input2 ... > output");
 	desc.add_options()
 		("help,h", "show this help message")
 		("blosum,b", value<string>(&blosum_name)->default_value("blosum.dat"),
-		 "blosum matrix in 3-column format.")
+		 "BLOSUM matrix in DIALIGN format.")
 		("weights,w", value<string>(&blosum_weights_name)->default_value("weights.dat"),
-		 "weights for blosum scores by run length.");
+		 "weights for BLOSUM scores by run length.")
+		("ipssp", bool_switch(&use_ipssp_format),
+		 "input in IPSSP-FASTA format instead of PSIPRED-VFORMAT.")
+		;
 #if CAIRO_FOUND
 	string debug_name;
 	desc.add_options()
 		("debug,d", value<string>(&debug_name)->implicit_value("debug.pdf"),
 		 "dump the DP matrix into a PDF.");
 #endif
+	options_description score("Combine (multiply) the BLOSUM score with");
+	score.add_options()
+		("sov", bool_switch(&use_sov_score),
+		 "Sequence Overlap (SOV) scorer.")
+		("q3", bool_switch(&use_q3_score),
+		 "Q3 scorer.")
+		;
+	desc.add(score);
+
 
 	options_description hidden;
 	hidden.add_options()
@@ -62,7 +80,7 @@ int main(int argc, char **argv) {
 			cerr << "Could not read blosum: " << blosum_name << endl;
 			return EXIT_FAILURE;
 		}
-		is >> blosum;
+		read_blosum(is, blosum);
 	}
 
 	// read blosum weights
@@ -73,36 +91,37 @@ int main(int argc, char **argv) {
 			cerr << "Could not read weights: " << blosum_weights_name << endl;
 			return EXIT_FAILURE;
 		}
-		is >> blosum_weights;
+		read_weights(is, blosum_weights);
 	}
 	size_t max_length = blosum_weights.size() - 2;
 
 	// read inputs
-	typedef sequence<3> sequence_t;
-	vector<sequence_t> inputs;
+	vector<sequence> inputs;
 	for(auto name : input_names) {
-		sequence_t input;
+		sequence input;
 		ifstream is{name};
 		if(!is) {
 			cerr << "Could not read input: " << name << endl;
 			return EXIT_FAILURE;
 		}
-		is >> input;
+		if(use_ipssp_format) read_ipssp(is, input);
+		else read_psipred(is, input);
 		inputs.push_back(input);
 	}
 
 	// initialise scorers
-	blosum_score<sequence_t> s0{blosum, blosum_weights};
-	profile_score<sequence_t> s1;
+	vector<shared_ptr<scorer>> sc;
+	sc.push_back(make_shared<blosum_score>(blosum, blosum_weights));
+	if(use_sov_score) sc.push_back(make_shared<sov_score>());
+	if(use_q3_score) sc.push_back(make_shared<q3_score>());
+	combined_score scorer{sc};
 
 	// compute alignments between each sequence
 	for(size_t i1 = 0 ; i1 != inputs.size() ; i1++) {
 		for(size_t i2 = i1 + 1 ; i2 != inputs.size() ; i2++) {
 			// align
 			vector<entry> output;
-			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length,
-				s0 * s1
-			);
+			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, scorer);
 			// dump as dialign anchors
 			for(auto e : output)
 				cout << (i1 + 1) << ' ' << (i2 + 1)
@@ -110,7 +129,7 @@ int main(int argc, char **argv) {
 				     << ' ' << e.length() << ' ' << e.run_value << '\n';
 #if CAIRO_FOUND
 			if(debug_name.size() > 0)
-				debug(debug_name, input1, input2, matrix, output);
+				debug(debug_name, inputs[i1], inputs[i2], matrix, output);
 #endif
 		}
 	}
