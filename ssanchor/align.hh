@@ -46,7 +46,7 @@ typedef std::vector< std::vector<entry> > matrix_t;
 template<class OutputIterator, class Score>
 matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t max_run, Score score) {
 	using namespace std;
-	matrix_t f{a.size(), vector<entry>{b.size(), entry()}};
+	matrix_t f{a.size(), vector<entry>(b.size(), entry())};
 	vector<entry> cases; cases.reserve(max_run + 5);
 
 	// Find maximum score
