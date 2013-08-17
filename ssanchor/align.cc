@@ -109,16 +109,16 @@ int main(int argc, char **argv) {
 		inputs.push_back(input);
 	}
 
-	// initialise scorers
-	vector<shared_ptr<scorer>> sc;
-	sc.push_back(make_shared<blosum_score>(blosum, blosum_weights));
-	if(use_sov_score) sc.push_back(make_shared<sov_score>());
-	if(use_q3_score) sc.push_back(make_shared<q3_score>());
-	combined_score scorer{sc};
-
 	// compute alignments between each sequence
 	for(size_t i1 = 0 ; i1 != inputs.size() ; i1++) {
 		for(size_t i2 = i1 + 1 ; i2 != inputs.size() ; i2++) {
+			// initialise scorers
+			vector<shared_ptr<scorer>> sc;
+			sc.push_back(make_shared<blosum_score>(blosum, blosum_weights));
+			if(use_sov_score) sc.push_back(make_shared<sov_score>(true));
+			if(use_q3_score) sc.push_back(make_shared<q3_score>());
+			combined_score scorer{sc};
+
 			// align
 			vector<entry> output;
 			auto matrix = align(back_inserter(output), inputs[i1], inputs[i2], max_length, scorer);
