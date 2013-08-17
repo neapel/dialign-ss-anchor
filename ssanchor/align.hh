@@ -52,7 +52,7 @@ matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t 
 	for(size_t i = 0 ; i < a.size() ; i++)
 		for(size_t j = 0 ; j < b.size() ; j++) {
 			entry best{i, j, 0};
-			// rect. maxima:
+			// rect. maxima. Prefer those if same.
 			if(i > 0) best = max(f[i - 1][j], best);
 			if(j > 0) best = max(f[i][j - 1], best);
 			// shortest to longest run.
@@ -67,8 +67,8 @@ matrix_t align(OutputIterator out, const sequence &a, const sequence &b, size_t 
 					e.run_value *= rel_score(a.begin() + (i - n), b.begin() + (j - n), n + 1);
 					// total value.
 					e.value += e.run_value;
-					// check if it's still the best.
-					best = max(e, best);
+					// Use this if it's better
+					best = max(best, e);
 				}
 			}
 			f[i][j] = best;
