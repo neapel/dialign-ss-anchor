@@ -9,13 +9,7 @@ fi
 
 base=$(sed 's/\.tfa.*//' <<< $input)
 seqname=$(sed 's%^.*RV../%%' <<< $base)
-
-case "$input" in
-	*blosum-psipred-q3*) kind=q3 ;;
-	*blosum-psipred-sov*) kind=sov ;;
-	*blosum*) kind=abs ;;
-	*) kind=ref ;;
-esac
+kind=$(sed -r 's/^.*\.(.*)\.dialign-tx\.msf$/\1/' <<< $input)
 
 
 bin=balibase3/bali_score_src/bali_score
